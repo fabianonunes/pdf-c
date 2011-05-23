@@ -52,27 +52,24 @@
 		parallel xmlstarlet sel -I -t -c "//PAGE/self::*" {} ::: $textFolder/p*.xml >> $textFolder/full.xml
 		echo "</DOCUMENT>" >> $textFolder/full.xml
 
-	# echo $docFolder "- Generating images files...";
-	# 	parallel -a <(seq 1 $step $numberOfPages) -a <(seq $step $step $((numberOfPages + step))) \
-	# 		/home/fabiano/bin/pdfdraw -r 110 -g -o $imageFolder/png/%d.png $pdfFile {1}-{2} 2> /dev/null;
+		parallel rm {} ::: $textFolder/p*.xml
 
-	# echo $docFolder "- Generating thumbnails..."
-	# 	parallel convert -resize x200 -depth 2 {} $imageFolder/png/t/{/} ::: $imageFolder/png/*.png
 
-	
+	echo $docFolder "- Generating images files...";
+		parallel -a <(seq 1 $step $numberOfPages) -a <(seq $step $step $((numberOfPages + step))) \
+			/home/fabiano/bin/pdfdraw -r 110 -g -o $imageFolder/png/%d.png $pdfFile {1}-{2} 2> /dev/null;
+
+	echo $docFolder "- Generating thumbnails..."
+		parallel convert -resize x200 -depth 2 {} $imageFolder/png/t/{/} ::: $imageFolder/png/*.png
+
 	echo $docFolder "- Merging/Optimizing/Simplifying XML files..."
-		parallel xmlstarlet tr {} $textFolder/full.xml ">" $textFolder/{.}.xml ::: *.xslt
-
-
-	
-	# echo $docFolder "- Merging/Optimizing/Simplifying XML files..."
-	# 	 java -jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo optimize-text -i $docFolder
+		#parallel xmlstarlet tr {} $textFolder/full.xml ">" $textFolder/{.}.xml ::: *.xslt
+		java -jar opti.jar $textFolder/full.xml;
+		rm $textFolder/full.xml;
+		parallel tidy -utf8 -xml -w 255 -i -c -q -asxml -o {} {} ::: $textFolder/simple/*.xml;
+		parallel gzip {} ::: $textFolder/simple/*
 
 	exit;
-
-	truncate -s 0 java.cmd;
-	echo $docFolder "- Merging/Optimizing/Simplifying XML files..."
-		echo "-jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo optimize-text -i $docFolder" >> java.cmd;
 
 	echo $docFolder "- Storing document in DB..."
 		echo "-jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo store-db -i $docFolder" >> java.cmd;
