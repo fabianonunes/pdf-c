@@ -37,14 +37,14 @@
 	pdfFile=$docFolder/$baseName;
 	mv $i $pdfFile;
 
-	numberOfPages=$(pdfinfo $pdfFile | grep Pages | sed "s/[^0-9]*//gi");
+	numberOfPages=$(pdfinfo $pdfFile 2> /dev/null | grep Pages | sed "s/[^0-9]*//gi");
 
 	step=25;
 
 	echo $docFolder "- Generating XML files...";
 
 		parallel -a <(seq 1 $step $numberOfPages) -a <(seq $step $step $((numberOfPages + step))) \
-			pdftoxml -noImage -noImageInline -f {1} -l {2} $pdfFile $textFolder/p{1}.xml;
+			pdftoxml -noImage -noImageInline -f {1} -l {2} $pdfFile $textFolder/p{1}.xml 2> /dev/null;
 
 		parallel tidy -utf8 -xml -w 255 -i -c -q -asxml -o {} {} ::: $textFolder/*.xml;
 
@@ -64,20 +64,16 @@
 
 	echo $docFolder "- Merging/Optimizing/Simplifying XML files..."
 		#parallel xmlstarlet tr {} $textFolder/full.xml ">" $textFolder/{.}.xml ::: *.xslt
-		java -jar opti.jar $textFolder/full.xml;
-		rm $textFolder/full.xml;
+		java -Xmx2048m -jar opti.jar $textFolder/full.xml;
+		#rm $textFolder/full.xml;
 		parallel tidy -utf8 -xml -w 255 -i -c -q -asxml -o {} {} ::: $textFolder/simple/*.xml;
 		parallel gzip {} ::: $textFolder/simple/*
 
-	exit;
-
 	echo $docFolder "- Storing document in DB..."
-		echo "-jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo store-db -i $docFolder" >> java.cmd;
-
-	ppss -f java.cmd -c 'java  $ITEM ';
+		java -jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo store-db -i $docFolder;
 
 	echo $docFolder "- Building index..."
-	java -jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo build-index -i $docFolder -solrHost "http://localhost:8081/reader-index";
+		java -jar /home/fabiano/bin/reader-cli-0.0.3.jar -metodo build-index -i $docFolder -solrHost "http://localhost:8081/reader-index";
 
 	echo " ";
 
